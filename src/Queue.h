@@ -1,20 +1,31 @@
 #include <iterator> // per std::iterator.
 #include <iostream> // per integrazione della stampa di una coda.
 
-// eccezione legata ai nodi nulli.
+// Eccezione lanciata quando un nodo e' nullo.
 class null_node_exception : public std::runtime_error {
     public:
         null_node_exception(const char* msg):
             std::runtime_error(msg) {}
 };
 
-// generico nodo di una doppia lista puntata.
-// usato nell'implementazione della classe Qeueue.
+// Eccezione lanciata quando la coda e' vuota.
+class empty_queue_exception : public std::runtime_error {
+    public:
+        empty_queue_exception(const char* msg):
+            std::runtime_error(msg) {}
+};
+
+// Forward declaration di Queue (per l'amicizia con Node).
+template <typename T> class Queue;
+
+// Generico nodo di una doppia lista puntata.
+// Usato nell'implementazione della classe Qeueue.
 template <typename T>
 class Node {
     public:
-        // friend class Queue;
+        friend Queue<T>;
 
+        // Costruttore per varie inizializzazioni.
         Node(const T& var, Node<T>* next, Node<T>* prev):
             _data(var),
             _next(next),
@@ -22,11 +33,21 @@ class Node {
         Node(const T& var):
             _data(var) {}
 
+        // Costruttore di copia.
+        Node(const Node& other):
+            _data(other._data),
+            _next(other._next),
+            _prev(other._prev) {}
+
+        // Operatori di comparazione.
         bool operator==(const Node<T>& other) {
             return _data == other._data && _next == other._next && _prev == other._prev;
         }
+        bool operator!=(const Node<T>& other) {
+            return !(*this == other);
+        }
 
-    public: //!TODO
+    private:
         T _data;
         Node<T>* _next = NULL;
         Node<T>* _prev = NULL;
@@ -49,30 +70,55 @@ class Queue{
         // iteratore di input/output (bidirezionale)
         class iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
             public:
-                // costruttore
+                // costruttore per inizializzazione.
                 explicit iterator(Node<T>* currentNode):
                     _currentNode(currentNode) {}
+
+                // costruttore di copia.
+                iterator(const iterator& other):
+                    _currentNode(other._currentNode) {}
             
-                // operatori per scorrimento coda
+                // operatori per scorrimento coda.
+                // N.B. L'operatore "++" "avanza" nell'anzianita' degli elementi.
+                //      Ovvero un'espressione del tipo "++itr" restituisce un 
+                //      iteratore piu' vecchio di "itr".
                 iterator& operator++() {
+                    if(_currentNode == NULL)
+                        throw null_node_exception("ERROR: trying to increment iterator containing null node.");
                     _currentNode = _currentNode->_next;
+                    return *this;
+                }
+                iterator operator++(int) { // versione postfissa.
+                    iterator tmp = *this; 
+                    ++(*this);
+                    return tmp;
                 }
                 iterator& operator--() {
+                    if (_currentNode == NULL)
+                        throw null_node_exception("ERROR: trying to decrement iterator containing null node.");
                     _currentNode = _currentNode->_prev;
+                    return *this;
+                }
+                iterator operator--(int) { // versione postfissa.
+                    iterator tmp = *this;
+                    --(*this);
+                    return tmp;
                 }
 
-                // dereferenziamento (con possibile modifica)
+                // dereferenziamento (con possibile modifica).
                 T& operator*() {
+                    if (_currentNode == NULL)
+                        throw null_node_exception("ERROR: trying to dereference iterator containing null node.");
                     return _currentNode->_data;
                 }
 
-                // assegnamento
+                // assegnamento.
                 iterator& operator=(const iterator& other) {
                     _currentNode = other._currentNode;
                     return *this;
                 }
 
-                // operatori di comparazione
+                // operatori di comparazione.
                 bool operator==(const iterator& other) const {
                     return _currentNode == other._currentNode;
                 }
@@ -95,31 +141,50 @@ class Queue{
         //          in maniera approfondita (riferirsi alla classe "iterator")
         class const_iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
             public:
-                // costruttore
+                // costruttore.
                 explicit const_iterator(Node<T>* currentNode):
                     _currentNode(currentNode) {}
-            
-                // scorrimento
+
+                // costruttore di copia.
+                const_iterator(const const_iterator& other):
+                    _currentNode(other._currentNode) {}
+
+                // scorrimento.
                 const_iterator& operator++() {
+                    if (_currentNode == NULL)
+                        throw null_node_exception("ERROR: trying to increment iterator containing null node.");
                     _currentNode = _currentNode->_next;
                     return *this;
                 }
+                const_iterator operator++(int) { // versione postfissa.
+                    const_iterator tmp = *this; 
+                    ++(*this);
+                    return tmp;
+                }
                 const_iterator& operator--() {
+                    if (_currentNode == NULL)
+                        throw null_node_exception("ERROR: trying to decrement iterator containing null node.");
                     _currentNode = _currentNode->_prev;
                     return *this;
                 }
-               
-                // dereferenziamento (non e' permessa la modifica della reference)
+                const_iterator operator--(int) { // version postfissa.
+                    const_iterator tmp = *this;
+                    --(*this);
+                    return tmp;
+                }
+                // dereferenziamento (non e' permessa la modifica della reference).
                 const T& operator*() const { 
+                    if (_currentNode == NULL)
+                        throw null_node_exception("ERROR: trying to dereference iterator containing null node.");
                     return _currentNode->_data;
                 }
-                // assegnamento
+                // assegnamento.
                 const_iterator& operator=(const const_iterator& other) {
                     _currentNode = other._currentNode;
                     return *this;
                 }
 
-                // operatore di comparazione
+                // operatori di comparazione.
                 bool operator==(const const_iterator& other) const {
                     return _currentNode == other._currentNode;
                 }
@@ -130,7 +195,7 @@ class Queue{
             private:
                 // rappresentazione interna dell'elemento puntato dall'iteratore e
                 // della sua posizione (tutte info contenute nella classe Node<T>).
-                Node<T>* _currentNode = NULL;
+                const Node<T>* _currentNode = NULL;
         };
 
         // inserimento del primo elemento. Metodo fondamentale
@@ -164,6 +229,11 @@ class Queue{
         // il primo elemento inserito con "push".
         // IMPLEMENTAZIONE SOTTOSTANTE: rimozione della coda ad una doppia lista puntata.
         void pop() {
+            // eccezione: se la coda e' vuota non c'e' modo di rimuovere elementi.
+            if (_size == 0) {
+                throw empty_queue_exception("ERROR: trying to pop element from an empty queue.");
+            }
+
             // gestione size
             --_size;
 
@@ -197,24 +267,24 @@ class Queue{
         // getter per accesso al primo e ultimo elemento.
         T front() const {
             if (_tail == NULL)
-                throw null_node_exception("ERROR: null node while accessing first element");
+                throw null_node_exception("ERROR: encountered null node while accessing first element.");
             return _tail->_data;
         }
         T back() const {
             if (_head == NULL)
-                throw null_node_exception("ERROR: null node while accessing last element");
+                throw null_node_exception("ERROR: encountered null node while accessing last element.");
             return  _head->_data;
         }
         
         // setter per modifica del primo e utlimo elemento.
         void setFront(const T& first) {
             if (_tail == NULL)
-                throw null_node_exception("ERROR: null node while accessing first element");
+                throw null_node_exception("ERROR: encountered null node while accessing first element.");
              _tail->_data = first;
         }
         void setBack(const T& last) {
             if (_tail == NULL)
-                throw null_node_exception("ERROR: null node while accessing last element");
+                throw null_node_exception("ERROR: encountered null node while accessing last element.");
              _head->_data = last;
         }
         
@@ -244,7 +314,7 @@ class Queue{
             return const_iterator(NULL);
         }
 
-    public: //!TODO
+    private: 
         Node<T>* _head = NULL;
         Node<T>* _tail = NULL;
         size_t _size = 0;

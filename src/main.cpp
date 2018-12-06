@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iostream>
 #include <vector>
 
@@ -84,6 +85,39 @@ int main()
     std::cout << "TEST10: raddoppiamento numeri pari con transformif." << std::endl;
     transformif(queue, ParityChecker<int>(), Multiplier<int>(2));
     std::cout << "stampa coda: " << queue << std::endl;
-    
+
+    // TEST ECCEZIONI
+    std::cout << "scegliere un contesto per testare le eccezioni:\n"
+              << "1) dereferenziamento iteratore vuoto.\n"
+              << "2) preincremento iteratore vuoto.\n"
+              << "3) pop() a coda vuota.\n"
+              << "scelta: ";
+    int scelta;
+    std::cin >> scelta;
+    try {
+        Queue<int>::iterator wrongItr(NULL);
+        Queue<int> emptyQueue;
+        switch(scelta) {
+            case 1:
+                std::cout << *wrongItr << "!!!" << std::endl;
+                break;
+            case 2:
+                wrongItr++;
+                break;
+            case 3:
+                std::cout << "questa coda ha " << emptyQueue.size()
+                          << " elementi. Operando la rimozione del primo inserito..." 
+                          << std::endl;
+                emptyQueue.pop();
+                break;
+            default:
+                assert("FATAL ERROR: wrong choice in menu.");
+        }
+    }
+    catch (const std::runtime_error& exp) {
+        std::cout << "trovata eccezione! Messaggio: " << exp.what() << std::endl;
+    }
+
+    //
     return 0;
 }
